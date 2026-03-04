@@ -6,6 +6,7 @@ import {
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import { AuthProvider } from "#/contexts/AuthContext";
 import Footer from "../components/Footer";
 import Header from "../components/Header";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
@@ -31,7 +32,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 				content: "width=device-width, initial-scale=1",
 			},
 			{
-				title: "TanStack Start Starter",
+				title: "Urbanistica Dashboard",
 			},
 		],
 		links: [
@@ -55,22 +56,26 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			<body className="font-sans antialiased [overflow-wrap:anywhere] selection:bg-[rgba(79,184,178,0.24)]">
 				<TanStackQueryProvider>
 					<TRPCProvider>
-						<Header />
-						{children}
-						<Footer />
-						<TanStackDevtools
-							config={{
-								position: "bottom-right",
-							}}
-							plugins={[
-								{
-									name: "Tanstack Router",
-									render: <TanStackRouterDevtoolsPanel />,
-								},
-								StoreDevtools,
-								TanStackQueryDevtools,
-							]}
-						/>
+						<AuthProvider>
+							<div className="flex flex-col min-h-screen">
+								<Header />
+								<div className="flex-1">{children}</div>
+								<Footer />
+							</div>
+							<TanStackDevtools
+								config={{
+									position: "bottom-right",
+								}}
+								plugins={[
+									{
+										name: "Tanstack Router",
+										render: <TanStackRouterDevtoolsPanel />,
+									},
+									StoreDevtools,
+									TanStackQueryDevtools,
+								]}
+							/>
+						</AuthProvider>
 					</TRPCProvider>
 				</TanStackQueryProvider>
 				<Scripts />

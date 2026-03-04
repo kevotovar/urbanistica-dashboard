@@ -1,133 +1,173 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+	ArrowRight,
+	CheckCircle2,
+	Clock,
+	FolderKanban,
+	LayoutDashboard,
+	TrendingUp,
+} from "lucide-react";
+import { Badge } from "#/components/ui/badge";
+import { Button } from "#/components/ui/button";
+import { useAuth } from "#/contexts/AuthContext";
 import { trpc } from "#/lib/trpc";
 
 export const Route = createFileRoute("/")({ component: App });
 
-function TodosList() {
-	const { data: todos, isLoading, error } = trpc.todos.list.useQuery();
-
-	if (isLoading) {
-		return <p className="text-sm text-[var(--sea-ink-soft)]">Loading todos…</p>;
-	}
-
-	if (error) {
-		return (
-			<p className="text-sm text-red-500">
-				Failed to load todos: {error.message}
-			</p>
-		);
-	}
-
-	if (!todos || todos.length === 0) {
-		return <p className="text-sm text-[var(--sea-ink-soft)]">No todos yet.</p>;
-	}
-
+function StatsCard({ title, value, icon: Icon, color }: any) {
 	return (
-		<ul className="space-y-2">
-			{todos.map((todo) => (
-				<li
-					key={todo.id}
-					className="flex items-center justify-between rounded-lg border border-[rgba(23,58,64,0.12)] bg-white/40 px-4 py-2.5"
-				>
-					<span className="text-sm font-medium text-[var(--sea-ink)]">
-						{todo.title}
-					</span>
-					<span className="text-xs text-[var(--sea-ink-soft)]">
-						{todo.createdAt
-							? new Date(todo.createdAt).toLocaleDateString()
-							: "—"}
-					</span>
-				</li>
-			))}
-		</ul>
+		<div className="p-6 border rounded-2xl bg-card shadow-sm space-y-2">
+			<div className={`p-2 w-fit rounded-lg ${color} bg-opacity-10 mb-2`}>
+				<Icon size={20} className={color.replace("bg-", "text-")} />
+			</div>
+			<p className="text-sm font-medium text-muted-foreground uppercase tracking-tight">
+				{title}
+			</p>
+			<p className="text-3xl font-bold">{value}</p>
+		</div>
 	);
 }
 
 function App() {
-	return (
-		<main className="page-wrap px-4 pb-8 pt-14">
-			<section className="island-shell rise-in relative overflow-hidden rounded-[2rem] px-6 py-10 sm:px-10 sm:py-14">
-				<div className="pointer-events-none absolute -left-20 -top-24 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(79,184,178,0.32),transparent_66%)]" />
-				<div className="pointer-events-none absolute -bottom-20 -right-20 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(47,106,74,0.18),transparent_66%)]" />
-				<p className="island-kicker mb-3">TanStack Start Base Template</p>
-				<h1 className="display-title mb-5 max-w-3xl text-4xl leading-[1.02] font-bold tracking-tight text-[var(--sea-ink)] sm:text-6xl">
-					Start simple, ship quickly.
-				</h1>
-				<p className="mb-8 max-w-2xl text-base text-[var(--sea-ink-soft)] sm:text-lg">
-					This base starter intentionally keeps things light: two routes, clean
-					structure, and the essentials you need to build from scratch.
-				</p>
-				<div className="flex flex-wrap gap-3">
-					<a
-						href="/about"
-						className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-5 py-2.5 text-sm font-semibold text-[var(--lagoon-deep)] no-underline transition hover:-translate-y-0.5 hover:bg-[rgba(79,184,178,0.24)]"
-					>
-						About This Starter
-					</a>
-					<a
-						href="https://tanstack.com/router"
-						target="_blank"
-						rel="noopener noreferrer"
-						className="rounded-full border border-[rgba(23,58,64,0.2)] bg-white/50 px-5 py-2.5 text-sm font-semibold text-[var(--sea-ink)] no-underline transition hover:-translate-y-0.5 hover:border-[rgba(23,58,64,0.35)]"
-					>
-						Router Guide
-					</a>
+	const { user, isLoading: authLoading } = useAuth();
+	const { data: projects, isLoading: projectsLoading } =
+		trpc.projects.list.useQuery();
+
+	if (authLoading || projectsLoading) {
+		return (
+			<div className="flex items-center justify-center min-h-[60vh]">
+				<div className="flex flex-col items-center gap-4">
+					<div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+					<p className="text-muted-foreground animate-pulse font-medium">
+						Initializing Dashboard...
+					</p>
 				</div>
+			</div>
+		);
+	}
+
+	const activeProjects =
+		projects?.filter((p) => p.status === "active").length || 0;
+	const completedProjects =
+		projects?.filter((p) => p.status === "completed").length || 0;
+	const leads = projects?.filter((p) => p.status === "lead").length || 0;
+
+	return (
+		<main className="max-w-7xl mx-auto p-6 space-y-10 animate-in fade-in duration-700">
+			<section className="relative overflow-hidden rounded-3xl bg-primary text-primary-foreground p-8 md:p-12 shadow-2xl shadow-primary/20">
+				<div className="relative z-10 space-y-6 max-w-2xl">
+					<div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold uppercase tracking-wider">
+						<LayoutDashboard size={14} />
+						Management Portal
+					</div>
+					<h1 className="text-4xl md:text-6xl font-bold leading-[1.1] tracking-tight">
+						Urbanistica <br /> Dashboard
+					</h1>
+					<p className="text-lg md:text-xl text-primary-foreground/80 leading-relaxed">
+						Centralized platform for urban planning, architectural design, and
+						project intelligence.
+					</p>
+					<div className="flex flex-wrap gap-4 pt-4">
+						{user ? (
+							<Link to={"/projects" as any}>
+								<Button
+									size="lg"
+									variant="secondary"
+									className="font-bold shadow-lg"
+								>
+									Go to Projects Hub <ArrowRight size={18} className="ml-2" />
+								</Button>
+							</Link>
+						) : (
+							<Link to={"/login" as any}>
+								<Button size="lg" variant="secondary" className="font-bold">
+									Get Started <ArrowRight size={18} className="ml-2" />
+								</Button>
+							</Link>
+						)}
+					</div>
+				</div>
+
+				{/* Abstract background shapes */}
+				<div className="absolute -right-20 -top-20 w-96 h-96 bg-white/5 rounded-full blur-3xl" />
+				<div className="absolute right-20 bottom-0 w-64 h-64 bg-black/10 rounded-full blur-3xl" />
 			</section>
 
-			<section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-				{[
-					[
-						"Type-Safe Routing",
-						"Routes and links stay in sync across every page.",
-					],
-					[
-						"Server Functions",
-						"Call server code from your UI without creating API boilerplate.",
-					],
-					[
-						"Streaming by Default",
-						"Ship progressively rendered responses for faster experiences.",
-					],
-					[
-						"Tailwind Native",
-						"Design quickly with utility-first styling and reusable tokens.",
-					],
-				].map(([title, desc], index) => (
-					<article
-						key={title}
-						className="island-shell feature-card rise-in rounded-2xl p-5"
-						style={{ animationDelay: `${index * 90 + 80}ms` }}
-					>
-						<h2 className="mb-2 text-base font-semibold text-[var(--sea-ink)]">
-							{title}
-						</h2>
-						<p className="m-0 text-sm text-[var(--sea-ink-soft)]">{desc}</p>
-					</article>
-				))}
-			</section>
+			{user && (
+				<>
+					<section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+						<StatsCard
+							title="Total Projects"
+							value={projects?.length || 0}
+							icon={FolderKanban}
+							color="bg-primary"
+						/>
+						<StatsCard
+							title="Active Now"
+							value={activeProjects}
+							icon={TrendingUp}
+							color="bg-blue-500"
+						/>
+						<StatsCard
+							title="Completed"
+							value={completedProjects}
+							icon={CheckCircle2}
+							color="bg-green-500"
+						/>
+						<StatsCard
+							title="New Leads"
+							value={leads}
+							icon={Clock}
+							color="bg-orange-500"
+						/>
+					</section>
 
-			<section className="island-shell mt-8 rounded-2xl p-6">
-				<p className="island-kicker mb-2">Quick Start</p>
-				<ul className="m-0 list-disc space-y-2 pl-5 text-sm text-[var(--sea-ink-soft)]">
-					<li>
-						Edit <code>src/routes/index.tsx</code> to customize the home page.
-					</li>
-					<li>
-						Update <code>src/components/Header.tsx</code> and{" "}
-						<code>src/components/Footer.tsx</code> for brand links.
-					</li>
-					<li>
-						Add routes in <code>src/routes</code> and tweak visual tokens in{" "}
-						<code>src/styles.css</code>.
-					</li>
-				</ul>
-			</section>
+					<section className="space-y-6">
+						<div className="flex items-center justify-between">
+							<h2 className="text-2xl font-bold tracking-tight">
+								Recent Activity
+							</h2>
+							<Link
+								to={"/projects" as any}
+								className="text-sm font-medium text-primary hover:underline flex items-center gap-1"
+							>
+								View all <ArrowRight size={14} />
+							</Link>
+						</div>
 
-			<section className="island-shell mt-8 rounded-2xl p-6">
-				<p className="island-kicker mb-4">Todos</p>
-				<TodosList />
-			</section>
+						<div className="grid gap-4">
+							{projects?.slice(0, 3).map((project) => (
+								<Link
+									key={project.id}
+									to={"/projects/$projectId" as any}
+									params={{ projectId: project.id.toString() } as any}
+									className="flex items-center justify-between p-4 border rounded-xl bg-card hover:border-primary/50 transition-all shadow-sm"
+								>
+									<div className="flex items-center gap-4">
+										<div className="p-2 rounded-lg bg-muted">
+											<FolderKanban size={20} className="text-primary" />
+										</div>
+										<div>
+											<p className="font-semibold">{project.name}</p>
+											<p className="text-xs text-muted-foreground">
+												{project.client?.name || "Private"}
+											</p>
+										</div>
+									</div>
+									<Badge variant="outline" className="capitalize">
+										{project.status}
+									</Badge>
+								</Link>
+							))}
+							{(!projects || projects.length === 0) && (
+								<div className="text-center py-12 border-2 border-dashed rounded-2xl text-muted-foreground">
+									No projects to display yet.
+								</div>
+							)}
+						</div>
+					</section>
+				</>
+			)}
 		</main>
 	);
 }

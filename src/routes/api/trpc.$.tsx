@@ -13,7 +13,7 @@ export const Route = createFileRoute("/api/trpc/$")({
 					endpoint: "/api/trpc",
 					req: request,
 					router: appRouter,
-					createContext: async () => createContext(),
+					createContext: async (opts) => createContext(opts),
 				});
 			},
 		},
