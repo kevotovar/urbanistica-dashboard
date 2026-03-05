@@ -6,11 +6,14 @@ import {
 	FolderKanban,
 	LayoutDashboard,
 	TrendingUp,
+	ShieldAlert,
+	LogOut,
 } from "lucide-react";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { useAuth } from "#/contexts/AuthContext";
 import { trpc } from "#/lib/trpc";
+import { logoutFn } from "#/server/auth";
 
 export const Route = createFileRoute("/")({ component: App });
 
@@ -29,11 +32,65 @@ function StatsCard({ title, value, icon: Icon, color }: any) {
 }
 
 function App() {
-	const { user, isLoading: authLoading } = useAuth();
-	const { data: projects, isLoading: projectsLoading } =
-		trpc.projects.list.useQuery();
+	const { user, isApproved, isLoading: authLoading } = useAuth();
 
-	if (authLoading || projectsLoading) {
+	const { data: projects, isLoading: projectsLoading } =
+		trpc.projects.list.useQuery(undefined, {
+			enabled: !!user && isApproved,
+		});
+
+	if (authLoading) {
+		return (
+			<div className="flex items-center justify-center min-h-[60vh]">
+				<div className="flex flex-col items-center gap-4">
+					<div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+					<p className="text-muted-foreground animate-pulse font-medium">
+						Checking authorization...
+					</p>
+				</div>
+			</div>
+		);
+	}
+
+	// Handle authenticated but NOT approved state
+	if (user && !isApproved) {
+		return (
+			<main className="max-w-7xl mx-auto p-6 flex items-center justify-center min-h-[70vh]">
+				<div className="max-w-md w-full text-center space-y-8 p-10 bg-card border rounded-3xl shadow-xl animate-in zoom-in duration-500">
+					<div className="mx-auto w-20 h-20 bg-orange-100 dark:bg-orange-900/30 text-orange-600 rounded-full flex items-center justify-center ring-8 ring-orange-50 dark:ring-orange-900/10">
+						<ShieldAlert size={40} />
+					</div>
+					<div className="space-y-3">
+						<h1 className="text-3xl font-bold tracking-tight">
+							Approval Pending
+						</h1>
+						<p className="text-muted-foreground leading-relaxed">
+							Welcome to Urbanistica, <span className="font-semibold text-foreground">{user.email}</span>! <br />
+							Your account has been created successfully, but it requires manual approval by an administrator before you can access the dashboard.
+						</p>
+					</div>
+					<div className="pt-4 space-y-4">
+						<div className="p-4 bg-muted/50 rounded-2xl text-sm text-muted-foreground border border-dashed">
+							We'll review your request shortly. Please check back later.
+						</div>
+						<Button
+							variant="outline"
+							className="w-full h-12 rounded-xl group"
+							onClick={async () => {
+								await logoutFn();
+								window.location.reload();
+							}}
+						>
+							<LogOut size={18} className="mr-2 group-hover:text-destructive transition-colors" />
+							Sign Out
+						</Button>
+					</div>
+				</div>
+			</main>
+		);
+	}
+
+	if (projectsLoading && user && isApproved) {
 		return (
 			<div className="flex items-center justify-center min-h-[60vh]">
 				<div className="flex flex-col items-center gap-4">
@@ -93,7 +150,7 @@ function App() {
 				<div className="absolute right-20 bottom-0 w-64 h-64 bg-black/10 rounded-full blur-3xl" />
 			</section>
 
-			{user && (
+			{user && isApproved && (
 				<>
 					<section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 						<StatsCard
