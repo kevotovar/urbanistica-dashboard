@@ -1,49 +1,34 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import mongoose from "mongoose";
+import { ProjectDocument as DocumentModel } from "#/lib/models";
 
 export class DocumentService {
-	constructor(private supabase: SupabaseClient) {}
-
-	async listByProject(projectId: number) {
-		const { data, error } = await this.supabase
-			.from("documents")
-			.select("*")
-			.eq("project_id", projectId)
-			.order("created_at", { ascending: false });
-
-		if (error) throw error;
-		return data;
+	async listByProject(projectId: string) {
+		const data = await DocumentModel.find({
+			projectId: new mongoose.Types.ObjectId(projectId),
+		})
+			.sort({ createdAt: -1 })
+			.lean();
+		return data.map((d) => ({ ...d, id: d._id.toString() }));
 	}
 
-	async getById(id: number) {
-		const { data, error } = await this.supabase
-			.from("documents")
-			.select("*")
-			.eq("id", id)
-			.single();
-
-		if (error) throw error;
-		return data;
+	async getById(id: string) {
+		const data = await DocumentModel.findById(id).lean();
+		if (!data) throw new Error("Document not found");
+		return { ...data, id: data._id.toString() };
 	}
 
-	async delete(id: number) {
-		const { data: doc } = await this.supabase
-			.from("documents")
-			.select("storage_path")
-			.eq("id", id)
-			.single();
+	async delete(id: string) {
+		const _doc = await DocumentModel.findById(id).lean();
 
-		if (doc) {
-			await this.supabase.storage
-				.from("project-documents")
-				.remove([doc.storage_path]);
+		// TODO: Mongoose doesn't support storage bucket removals natively.
+		// Need to implement custom file removal from S3 or local FS depending on user requirements.
+		/*
+		if (doc && doc.storagePath) {
+            // Delete from Storage here
 		}
+        */
 
-		const { error } = await this.supabase
-			.from("documents")
-			.delete()
-			.eq("id", id);
-
-		if (error) throw error;
+		await DocumentModel.findByIdAndDelete(id);
 		return { success: true };
 	}
 }

@@ -1,26 +1,13 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { Todo } from "#/lib/models";
 
 export class TodoService {
-	constructor(private supabase: SupabaseClient) {}
-
 	async list() {
-		const { data, error } = await this.supabase
-			.from("todos")
-			.select("*")
-			.order("created_at", { ascending: false });
-
-		if (error) throw error;
-		return data;
+		const data = await Todo.find().sort({ createdAt: -1 }).lean();
+		return data.map((d) => ({ ...d, id: d._id.toString() }));
 	}
 
 	async create(title: string) {
-		const { data, error } = await this.supabase
-			.from("todos")
-			.insert({ title })
-			.select()
-			.single();
-
-		if (error) throw error;
-		return data;
+		const newTodo = await Todo.create({ title });
+		return { ...newTodo.toJSON(), id: newTodo._id.toString() };
 	}
 }

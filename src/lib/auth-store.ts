@@ -1,10 +1,9 @@
 import { Store } from "@tanstack/store";
-import type { Session, User } from "@supabase/supabase-js";
 import type { Profile } from "#/types/auth";
 
 interface AuthState {
-	session: Session | null;
-	user: User | null;
+	session: any | null;
+	user: any | null;
 	profile: Profile | null;
 	isLoading: boolean;
 }

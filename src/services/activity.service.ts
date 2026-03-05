@@ -1,47 +1,71 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { Activity } from "#/lib/models";
 
 export class ActivityService {
-	constructor(private supabase: SupabaseClient) {}
-
-	async listByProject(projectId: number) {
-		const { data, error } = await this.supabase
-			.from("activities")
-			.select("*, personnel:personnel(*)")
-			.eq("project_id", projectId)
-			.order("date", { ascending: false });
-
-		if (error) throw error;
-		return data;
+	async list(limit = 50) {
+		const data = await Activity.find()
+			.sort({ createdAt: -1 })
+			.limit(limit)
+			.lean();
+		return data.map((d) => ({ ...d, id: d._id.toString() }));
 	}
 
-	async create(input: {
-		project_id: number;
-		personnel_id: number;
-		description: string;
-		hours?: string | null;
-		date?: string;
-		metadata?: any;
+	async log(input: {
+		action: string;
+		entity_type:
+			| "project"
+			| "client"
+			| "document"
+			| "transaction"
+			| "personnel";
+		entity_id?: string;
+		user_id?: string;
+		details?: Record<string, any>;
 	}) {
-		const { data, error } = await this.supabase
-			.from("activities")
-			.insert({
-				...input,
-				date: input.date || new Date().toISOString(),
-			})
-			.select()
-			.single();
+		const payload = {
+			action: input.action,
+			entityType: input.entity_type,
+			entityId: input.entity_id,
+			userId: input.user_id,
+			details: input.details,
+		};
 
-		if (error) throw error;
-		return data;
+		const newActivity = await Activity.create(payload);
+		return { ...newActivity.toJSON(), id: newActivity._id.toString() };
 	}
 
-	async delete(id: number) {
-		const { error } = await this.supabase
-			.from("activities")
-			.delete()
-			.eq("id", id);
+	async listRecentByProject(projectId: string, limit = 10) {
+		const data = await Activity.find({
+			entityType: "project",
+			entityId: projectId,
+		})
+			.sort({ createdAt: -1 })
+			.limit(limit)
+			.lean();
 
-		if (error) throw error;
-		return { success: true };
+		return data.map((d) => ({ ...d, id: d._id.toString() }));
+	}
+
+	async getStats() {
+		// Mock stats since real analytics usually require complicated Mongo aggregates
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+
+		const [activeUsers, projectsUpdated, docsUploaded] = await Promise.all([
+			Activity.distinct("userId", { createdAt: { $gte: today } }).then(
+				(res) => res.length,
+			),
+			Activity.countDocuments({
+				entityType: "project",
+				action: "update",
+				createdAt: { $gte: today },
+			}),
+			Activity.countDocuments({ entityType: "document", action: "create" }),
+		]);
+
+		return {
+			activeUsersToday: activeUsers,
+			projectsUpdatedThisWeek: projectsUpdated, // Mocking week as today for now to save complexity
+			documentsUploaded: docsUploaded,
+		};
 	}
 }

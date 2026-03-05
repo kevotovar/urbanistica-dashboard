@@ -44,7 +44,7 @@ export function LogActivityForm({
 
 		createMutation.mutate({
 			projectId,
-			personnelId: parseInt(formData.personnelId),
+			personnelId: parseInt(formData.personnelId, 10),
 			description: formData.description,
 			hours: formData.hours,
 		});

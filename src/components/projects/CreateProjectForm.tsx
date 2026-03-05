@@ -42,7 +42,7 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
 		createMutation.mutate({
 			name: formData.name,
 			description: formData.description,
-			clientId: formData.clientId ? parseInt(formData.clientId) : undefined,
+			clientId: formData.clientId ? parseInt(formData.clientId, 10) : undefined,
 			status: formData.status,
 		});
 	};

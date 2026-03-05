@@ -37,13 +37,13 @@ export function ChatInterface({ documentId }: ChatInterfaceProps) {
 		if (!sessionId && documentId !== 0) {
 			createSession.mutate({ documentId });
 		}
-	}, [documentId, sessionId]);
+	}, [documentId, sessionId, createSession.mutate]);
 
 	useEffect(() => {
 		if (scrollRef.current) {
 			scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
 		}
-	}, [messages]);
+	}, []);
 
 	const handleSend = (e: React.FormEvent) => {
 		e.preventDefault();

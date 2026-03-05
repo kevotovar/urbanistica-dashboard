@@ -5,9 +5,9 @@ import {
 	Clock,
 	FolderKanban,
 	LayoutDashboard,
-	TrendingUp,
-	ShieldAlert,
 	LogOut,
+	ShieldAlert,
+	TrendingUp,
 } from "lucide-react";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
@@ -65,8 +65,13 @@ function App() {
 							Approval Pending
 						</h1>
 						<p className="text-muted-foreground leading-relaxed">
-							Welcome to Urbanistica, <span className="font-semibold text-foreground">{user.email}</span>! <br />
-							Your account has been created successfully, but it requires manual approval by an administrator before you can access the dashboard.
+							Welcome to Urbanistica,{" "}
+							<span className="font-semibold text-foreground">
+								{user.email}
+							</span>
+							! <br />
+							Your account has been created successfully, but it requires manual
+							approval by an administrator before you can access the dashboard.
 						</p>
 					</div>
 					<div className="pt-4 space-y-4">
@@ -81,7 +86,10 @@ function App() {
 								window.location.reload();
 							}}
 						>
-							<LogOut size={18} className="mr-2 group-hover:text-destructive transition-colors" />
+							<LogOut
+								size={18}
+								className="mr-2 group-hover:text-destructive transition-colors"
+							/>
 							Sign Out
 						</Button>
 					</div>

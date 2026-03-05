@@ -1,6 +1,5 @@
 import { useForm } from "@tanstack/react-form";
 import { Link } from "@tanstack/react-router";
-import { zodValidator } from "@tanstack/zod-form-adapter";
 import { ArrowRight, CheckCircle2, Loader2, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";

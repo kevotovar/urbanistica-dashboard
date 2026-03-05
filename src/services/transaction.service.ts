@@ -1,26 +1,22 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import mongoose from "mongoose";
+import { Transaction } from "#/lib/models";
 
 export class TransactionService {
-	constructor(private supabase: SupabaseClient) {}
-
-	async listByProject(projectId: number) {
-		const { data, error } = await this.supabase
-			.from("transactions")
-			.select("*")
-			.eq("project_id", projectId)
-			.order("date", { ascending: false });
-
-		if (error) throw error;
-		return data;
+	async listByProject(projectId: string) {
+		const data = await Transaction.find({
+			project: new mongoose.Types.ObjectId(projectId),
+		})
+			.sort({ date: -1 })
+			.lean();
+		return data.map((d) => ({ ...d, id: d._id.toString() }));
 	}
 
-	async getProjectStats(projectId: number) {
-		const { data, error } = await this.supabase
-			.from("transactions")
-			.select("type, amount")
-			.eq("project_id", projectId);
-
-		if (error) throw error;
+	async getProjectStats(projectId: string) {
+		const data = await Transaction.find({
+			projectId: new mongoose.Types.ObjectId(projectId),
+		})
+			.select("type amount")
+			.lean();
 
 		const income = data
 			.filter((r) => r.type === "income")
@@ -38,33 +34,28 @@ export class TransactionService {
 	}
 
 	async create(input: {
-		project_id: number;
+		project_id: string;
 		type: "income" | "expense";
-		amount: string;
+		amount: string | number;
 		category: string;
 		description?: string | null;
 		date?: string;
 	}) {
-		const { data, error } = await this.supabase
-			.from("transactions")
-			.insert({
-				...input,
-				date: input.date || new Date().toISOString(),
-			})
-			.select()
-			.single();
+		const payload = {
+			projectId: new mongoose.Types.ObjectId(input.project_id),
+			type: input.type,
+			amount: Number(input.amount),
+			category: input.category,
+			description: input.description,
+			date: input.date ? new Date(input.date) : new Date(),
+		};
 
-		if (error) throw error;
-		return data;
+		const newTx = await Transaction.create(payload);
+		return { ...newTx.toJSON(), id: newTx._id.toString() };
 	}
 
-	async delete(id: number) {
-		const { error } = await this.supabase
-			.from("transactions")
-			.delete()
-			.eq("id", id);
-
-		if (error) throw error;
+	async delete(id: string) {
+		await Transaction.findByIdAndDelete(id);
 		return { success: true };
 	}
 }

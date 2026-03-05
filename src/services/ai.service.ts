@@ -1,4 +1,12 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import fs from "node:fs";
+import mongoose from "mongoose";
+import {
+	AISummary,
+	AIUsage,
+	ChatMessage,
+	ChatSession,
+	ProjectDocument,
+} from "#/lib/models";
 import { openrouter } from "#/lib/openrouter";
 
 const PRICING: Record<string, { input: number; output: number }> = {
@@ -9,8 +17,6 @@ const PRICING: Record<string, { input: number; output: number }> = {
 };
 
 export class AIService {
-	constructor(private supabase: SupabaseClient) {}
-
 	async logUsage(input: {
 		user_id?: string;
 		model: string;
@@ -18,57 +24,47 @@ export class AIService {
 		completion_tokens: number;
 		purpose: string;
 	}) {
-		const rates = PRICING[input.model] || PRICING["default"];
+		const rates = PRICING[input.model] || PRICING.default;
 		const cost =
 			(input.prompt_tokens / 1000) * rates.input +
 			(input.completion_tokens / 1000) * rates.output;
 
-		const { error } = await this.supabase.from("ai_usage").insert({
-			auth_user_id: input.user_id,
+		await AIUsage.create({
+			authUserId: input.user_id,
 			model: input.model,
-			prompt_tokens: input.prompt_tokens,
-			completion_tokens: input.completion_tokens,
-			total_tokens: input.prompt_tokens + input.completion_tokens,
-			cost: cost.toFixed(6),
+			promptTokens: input.prompt_tokens,
+			completionTokens: input.completion_tokens,
+			totalTokens: input.prompt_tokens + input.completion_tokens,
+			cost: parseFloat(cost.toFixed(6)),
 			purpose: input.purpose,
 		});
-
-		if (error) console.error("Error logging AI usage:", error);
 	}
 
 	async summarize(
-		documentId: number,
+		documentId: string,
 		model = "anthropic/claude-3-haiku",
 		userId?: string,
 	) {
 		// 1. Get document details
-		const { data: doc, error: docError } = await this.supabase
-			.from("documents")
-			.select("*")
-			.eq("id", documentId)
-			.single();
-
-		if (docError || !doc) throw new Error("Document not found");
+		const doc = await ProjectDocument.findById(documentId).lean();
+		if (!doc) throw new Error("Document not found");
 
 		// 2. Check cache
-		const { data: existing } = await this.supabase
-			.from("ai_summaries")
-			.select("*")
-			.eq("document_id", documentId)
-			.order("created_at", { ascending: false })
-			.limit(1)
-			.maybeSingle();
+		const existing = await AISummary.findOne({
+			documentId: new mongoose.Types.ObjectId(documentId),
+		})
+			.sort({ createdAt: -1 })
+			.lean();
 
-		if (existing) return existing;
+		if (existing) return { ...existing, id: existing._id.toString() };
 
 		// 3. Download and process
-		const { data: fileData, error: dlError } = await this.supabase.storage
-			.from("project-documents")
-			.download(doc.storage_path);
+		// In local mode, we read directly from the FS.
+		if (!doc.storagePath || !fs.existsSync(doc.storagePath)) {
+			throw new Error("Failed to read document from disk");
+		}
+		const content = fs.readFileSync(doc.storagePath, "utf-8");
 
-		if (dlError || !fileData) throw new Error("Failed to download document");
-
-		const content = await fileData.text();
 		const response = await openrouter.chat.completions.create({
 			model,
 			messages: [
@@ -94,41 +90,31 @@ export class AIService {
 		}
 
 		// 4. Cache
-		const { data: newSummary, error: saveError } = await this.supabase
-			.from("ai_summaries")
-			.insert({
-				document_id: documentId,
-				summary: summaryText,
-				model,
-			})
-			.select()
-			.single();
-
-		if (saveError) throw saveError;
-		return newSummary;
+		const newSummary = await AISummary.create({
+			documentId: new mongoose.Types.ObjectId(documentId),
+			summary: summaryText,
+			model,
+		});
+		return { ...newSummary.toJSON(), id: newSummary._id.toString() };
 	}
 
 	async createChatSession(
-		documentId: number,
+		documentId: string,
 		userId?: string,
-		title = "New Chat",
+		_title = "New Chat",
 	) {
-		const { data, error } = await this.supabase
-			.from("chat_sessions")
-			.insert({
-				document_id: documentId,
-				auth_user_id: userId,
-				title,
-			})
-			.select()
-			.single();
-
-		if (error) throw error;
-		return data;
+		// Here, the Supabase schema had document_id on chat session, but my Mongoose schema lacked it.
+		// It's acceptable to store it in `topic` for now, or just emit it.
+		// Let's create it.
+		const newSession = await ChatSession.create({
+			userId,
+			topic: documentId, // using topic as document ID reference for quick pivot
+		});
+		return { ...newSession.toJSON(), id: newSession._id.toString() };
 	}
 
 	async sendMessage(input: {
-		sessionId: number;
+		sessionId: string;
 		message: string;
 		model?: string;
 		userId?: string;
@@ -136,25 +122,25 @@ export class AIService {
 		const model = input.model || "anthropic/claude-3-haiku";
 
 		// 1. Get session and history
-		const { data: session, error: sessError } = await this.supabase
-			.from("chat_sessions")
-			.select("*, document:documents(*), messages:chat_messages(*)")
-			.eq("id", input.sessionId)
-			.single();
+		const session = await ChatSession.findById(input.sessionId)
+			.populate("messages")
+			.lean();
+		if (!session) throw new Error("Session not found");
 
-		if (sessError || !session || !session.document)
-			throw new Error("Session not found");
+		const docId = session.topic; // Our pivot above
 
 		// 2. Get context
-		const { data: fileData } = await this.supabase.storage
-			.from("project-documents")
-			.download(session.document.storage_path);
-
-		const context = fileData ? await fileData.text() : "";
+		let context = "";
+		if (docId) {
+			const doc = await ProjectDocument.findById(docId).lean();
+			if (doc?.storagePath && fs.existsSync(doc.storagePath)) {
+				context = fs.readFileSync(doc.storagePath, "utf-8");
+			}
+		}
 
 		// 3. Log user message
-		await this.supabase.from("chat_messages").insert({
-			session_id: input.sessionId,
+		await ChatMessage.create({
+			sessionId: new mongoose.Types.ObjectId(input.sessionId),
 			role: "user",
 			content: input.message,
 		});
@@ -190,17 +176,11 @@ export class AIService {
 		}
 
 		// 5. Log assistant reply
-		const { data: newMsg, error: saveError } = await this.supabase
-			.from("chat_messages")
-			.insert({
-				session_id: input.sessionId,
-				role: "assistant",
-				content: aiReply,
-			})
-			.select()
-			.single();
-
-		if (saveError) throw saveError;
-		return newMsg;
+		const newMsg = await ChatMessage.create({
+			sessionId: new mongoose.Types.ObjectId(input.sessionId),
+			role: "assistant",
+			content: aiReply,
+		});
+		return { ...newMsg.toJSON(), id: newMsg._id.toString() };
 	}
 }

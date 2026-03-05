@@ -26,7 +26,7 @@ export const Route = createFileRoute("/projects/$projectId" as any)({
 
 function ProjectDetails() {
 	const { projectId } = Route.useParams() as any;
-	const id = parseInt(projectId);
+	const id = parseInt(projectId, 10);
 	const [activeChatDocId, setActiveChatDocId] = useState<number | null>(null);
 
 	const { data: project, isLoading } = trpc.projects.getById.useQuery({ id });

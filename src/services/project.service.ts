@@ -1,57 +1,71 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import mongoose from "mongoose";
+import { Project } from "#/lib/models";
 
 export class ProjectService {
-	constructor(private supabase: SupabaseClient) {}
-
 	async list() {
-		const { data, error } = await this.supabase
-			.from("projects")
-			.select("*, client:clients(*)")
-			.order("created_at", { ascending: false });
+		// Mongoose query fetching projects and populating the 'client' document reference
+		const data = await Project.find()
+			.populate("client")
+			.sort({ createdAt: -1 })
+			.lean();
 
-		if (error) throw error;
-		return data;
+		return data.map((d) => ({ ...d, id: d._id.toString() }));
 	}
 
-	async getById(id: number) {
-		const { data, error } = await this.supabase
-			.from("projects")
-			.select(
-				"*, client:clients(*), assignments:project_assignments(*, personnel:personnel(*))",
-			)
-			.eq("id", id)
-			.single();
+	async getById(id: string) {
+		const data = await Project.findById(id)
+			.populate("client")
+			.populate("assignments") // Populating personnel docs directly thanks to the Array of ObjectIds in schema
+			.lean();
 
-		if (error) throw error;
-		return data;
+		if (!data) throw new Error("Project not found");
+
+		// Format similarly to previous Supabase response
+		const mappedAssignments = (data.assignments || []).map((person: any) => ({
+			id: person._id.toString(),
+			personnel: { ...person, id: person._id.toString() },
+		}));
+
+		return {
+			...data,
+			id: data._id.toString(),
+			assignments: mappedAssignments,
+		};
 	}
 
 	async create(input: {
 		name: string;
 		description?: string | null;
 		status?: "lead" | "active" | "completed" | "on_hold" | "cancelled";
-		client_id?: number | null;
+		client_id?: string | null;
 		start_date?: string | null;
 		end_date?: string | null;
 	}) {
-		const { data, error } = await this.supabase
-			.from("projects")
-			.insert(input)
-			.select()
-			.single();
+		// Map Supabase snake_case interface inputs to Mongoose camelCase schema
+		const projData = {
+			name: input.name,
+			description: input.description,
+			status: input.status,
+			client: input.client_id
+				? new mongoose.Types.ObjectId(input.client_id)
+				: undefined,
+			startDate: input.start_date,
+			endDate: input.end_date,
+		};
 
-		if (error) throw error;
-		return data;
+		const newProj = await Project.create(projData);
+		return { ...newProj.toJSON(), id: newProj._id.toString() };
 	}
 
-	async assignPersonnel(projectId: number, personnelId: number) {
-		const { data, error } = await this.supabase
-			.from("project_assignments")
-			.insert({ project_id: projectId, personnel_id: personnelId })
-			.select()
-			.single();
+	async assignPersonnel(projectId: string, personnelId: string) {
+		// Supabase historically inserted a relation table. With Mongoose, we just push the ObjectId to the array array.
+		const updated = await Project.findByIdAndUpdate(
+			projectId,
+			{ $addToSet: { assignments: new mongoose.Types.ObjectId(personnelId) } },
+			{ new: true },
+		).lean();
 
-		if (error) throw error;
-		return data;
+		if (!updated) throw new Error("Project not found");
+		return { success: true };
 	}
 }
