@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
+import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { MongoClient } from "mongodb";
 import clientPromise from "./mongo";
 
@@ -11,6 +12,7 @@ export const getAuthDb = async () => {
 };
 
 export const auth = betterAuth({
+	baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
 	database: mongodbAdapter(
 		// Hack: better-auth mongo adapter expects a Database object synchronously,
 		// but in modern serverless it might be async.
@@ -27,4 +29,5 @@ export const auth = betterAuth({
 		expiresIn: 60 * 60 * 24 * 7, // 7 days
 		updateAge: 60 * 60 * 24, // 1 day
 	},
+	plugins: [tanstackStartCookies()],
 });

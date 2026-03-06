@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
+import { getRequestHeaders } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { auth } from "#/lib/auth";
 
@@ -29,10 +29,9 @@ export const logoutFn = createServerFn({ method: "POST" }).handler(async () => {
 export const getSessionFn = createServerFn({
 	method: "GET",
 }).handler(async () => {
-	const request = getRequest();
-	if (!request) return null;
+	const headers = getRequestHeaders();
 	const session = await auth.api.getSession({
-		headers: request.headers,
+		headers,
 	});
 	return session;
 });
@@ -40,10 +39,9 @@ export const getSessionFn = createServerFn({
 export const getProfileFn = createServerFn({
 	method: "GET",
 }).handler(async () => {
-	const request = getRequest();
-	if (!request) return null;
+	const headers = getRequestHeaders();
 	const session = await auth.api.getSession({
-		headers: request.headers,
+		headers,
 	});
 	return session?.user ?? null;
 });
